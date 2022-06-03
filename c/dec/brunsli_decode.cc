@@ -33,7 +33,7 @@
 #include <brunsli/jpeg_data_writer.h>
 #include "./state.h"
 #include "./state_internal.h"
-
+#define JPEG_HEADER
 namespace brunsli {
 
 using ::brunsli::internal::dec::AcDcState;
@@ -2270,7 +2270,11 @@ BrunsliStatus DoProcessJpeg(State* state, JPEGData* jpg) {
         break;
 
       case Stage::FALLBACK:
+//#ifdef JPEG_HEADER
+//        state->stage = Stage::DONE;
+//#elif
         state->stage = DecodeOriginalJpg(state, jpg);
+//#endif
         break;
 
       case Stage::SECTION:

@@ -30,6 +30,7 @@
 #include <brunsli/jpeg_data_reader.h>
 #include "./state.h"
 #include "./write_bits.h"
+#define HEADER
 
 namespace brunsli {
 
@@ -1360,13 +1361,13 @@ bool BrunsliSerialize(State* state, const JPEGData& jpg, uint32_t skip_sections,
     ok = encode_section(kBrunsliHeaderTag, EncodeHeader, 1);
     if (!ok) return false;
   }
-
+#ifdef HEADER
   if (!(skip_sections & (1u << kBrunsliJPEGInternalsTag))) {
-    ok = encode_section(kBrunsliJPEGInternalsTag, EncodeJPEGInternals,
-                        Base128Size(EstimateAuxDataSize(jpg)));
-    if (!ok) return false;
+      ok = encode_section(kBrunsliJPEGInternalsTag, EncodeJPEGInternals,
+          Base128Size(EstimateAuxDataSize(jpg)));
+      if (!ok) return false;
   }
-
+#endif
   if (!(skip_sections & (1u << kBrunsliMetaDataTag))) {
     ok = encode_section(kBrunsliMetaDataTag, EncodeMetaData,
                         Base128Size(*len - pos));

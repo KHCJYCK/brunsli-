@@ -17,6 +17,8 @@
 #if defined(BRUNSLI_EXPERIMENTAL_GROUPS)
 #include "../experimental/groups.h"
 #endif
+#define JPEG_HEADER
+
 
 #if defined(_WIN32)
 #define fopen ms_fopen
@@ -27,7 +29,6 @@ static FILE* ms_fopen(const char* filename, const char* mode) {
 }
 #endif  /* WIN32 */
 
-//将buf中的前count位添加到data后面
 size_t StringWriter(void* data, const uint8_t* buf, size_t count) {
   std::string* output = reinterpret_cast<std::string*>(data);
   output->append(reinterpret_cast<const char*>(buf), count);
@@ -78,6 +79,58 @@ bool ReadFile(const std::string& file_name, std::string* content) {
   return ok;
 }
 
+#ifdef JPEG_HEADER
+bool ReadHeadInternal(FILE* file, std::string& content) {
+    if (fseek(file, 0, SEEK_END) != 0) {
+        fprintf(stderr, "Failed to seek end of input file.\n");
+        return false;
+    }
+    int input_size = ftell(file);
+    if (input_size == 0) {
+        fprintf(stderr, "Input file is empty.\n");
+        return false;
+    }
+    if (fseek(file, 0, SEEK_SET) != 0) {
+        fprintf(stderr, "Failed to rewind input file to the beginning.\n");
+        return false;
+    }
+    content.resize(input_size);
+    size_t read_pos = 0;
+    while (read_pos < content.size()) {
+        const size_t bytes_read =
+            fread(&content.at(read_pos), 1, 1, file);
+        if (bytes_read == 0) {
+            fprintf(stderr, "Failed to read input file\n");
+            return false;
+        }
+        if (read_pos > 0 && (uint8_t)content[read_pos - 1] == 0xFF && (uint8_t)content[read_pos] == 0xDA) {
+            read_pos += bytes_read;
+            break;
+        }
+        read_pos += bytes_read;
+    }
+    content.resize(read_pos);
+    content.shrink_to_fit();
+    return true;
+}
+bool ReadHead(const std::string& file_name, std::string& content) {
+    FILE* file = fopen(file_name.c_str(), "rb");
+    if (file == nullptr) {
+        fprintf(stderr, "Failed to open input file.\n");
+        return false;
+    }
+    bool ok = ReadHeadInternal(file, content);
+    if (fclose(file) != 0) {
+        if (ok) {
+            fprintf(stderr, "Failed to close input file.\n");
+        }
+        return false;
+    }
+    return ok;
+}
+#endif 
+
+
 bool WriteFileInternal(FILE* file, const std::string& content) {
   size_t write_pos = 0;
   while (write_pos < content.size()) {
@@ -110,15 +163,23 @@ bool WriteFile(const std::string& file_name, const std::string& content) {
 
 bool ProcessFile(const std::string& file_name,
                  const std::string& outfile_name) {
+#ifdef JPEG_HEADER
+    std::string header;
+    bool ok = ReadHead(file_name, header);
+    if (!ok) return false;
+#endif
   std::string input;
-  bool ok = ReadFile(file_name, &input);
+  ok = ReadFile(file_name, &input);
   if (!ok) return false;
 
   std::string output;
   {
     brunsli::JPEGData jpg;
+#ifdef JPEG_HEADER
+    const uint8_t* input_data = reinterpret_cast<const uint8_t*>(&input[header.size()]);
+#elif
     const uint8_t* input_data = reinterpret_cast<const uint8_t*>(input.data());
-
+#endif
 #if defined(BRUNSLI_EXPERIMENTAL_GROUPS)
     {
       brunsli::ParallelExecutor pool(4);
@@ -128,7 +189,7 @@ bool ProcessFile(const std::string& file_name,
     }
 #else
     brunsli::BrunsliStatus status =
-        brunsli::BrunsliDecodeJpeg(input_data, input.size(), &jpg);
+        brunsli::BrunsliDecodeJpeg(input_data, input.size() - header.size(), &jpg);
     ok = (status == brunsli::BRUNSLI_OK);
 #endif
 
