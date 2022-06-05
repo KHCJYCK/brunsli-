@@ -1069,6 +1069,10 @@ bool ReadHeader(const uint8_t* data, const size_t len, JpegReadMode mode,
         // Found end marker.
         break;
       case 0xda:
+        if (mode == JPEG_READ_ORIGIN_HEAD) {
+            header_len = pos + ReadUint16_NoPos(data, &pos);
+            return true;
+        }
         header_len = pos + ReadUint16_NoPos(data,&pos);
         if (mode == JPEG_READ_ALL) {
           ok = ProcessScan(data, len, dc_huff_lut, ac_huff_lut,

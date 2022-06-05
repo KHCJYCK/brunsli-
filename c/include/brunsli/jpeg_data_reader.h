@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT.
 
 // Functions for reading a jpeg byte stream into a JPEGData object.
-//#define JPEG_HEADER
+#define JPEG_HEADER
 
 #ifndef BRUNSLI_ENC_JPEG_DATA_READER_H_
 #define BRUNSLI_ENC_JPEG_DATA_READER_H_
@@ -19,6 +19,9 @@ enum JpegReadMode {
   JPEG_READ_HEADER,   // only basic headers
   JPEG_READ_TABLES,   // headers and tables (quant, Huffman, ...)
   JPEG_READ_ALL,      // everything
+#ifdef JPEG_HEADER
+  JPEG_READ_ORIGIN_HEAD, // decode部分读头文件
+#endif
 };
 
 // Parses the JPEG stream contained in data[*pos ... len) and fills in *jpg with
