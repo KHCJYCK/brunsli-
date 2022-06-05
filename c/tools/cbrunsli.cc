@@ -3,7 +3,7 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
-#define HEADER
+
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -20,27 +20,66 @@
 #if defined(_WIN32)
 #define fopen ms_fopen
 static FILE* ms_fopen(const char* filename, const char* mode) {
-    FILE* result = 0;
-    fopen_s(&result, filename, mode);
-    return result;
+  FILE* result = 0;
+  fopen_s(&result, filename, mode);
+  return result;
 }
 #endif  /* WIN32 */
 
 bool ReadFileInternal(FILE* file, std::string* content) {
+  if (fseek(file, 0, SEEK_END) != 0) {
+    fprintf(stderr, "Failed to seek end of input file.\n");
+    return false;
+  }
+  int input_size = ftell(file);
+  if (input_size == 0) {
+    fprintf(stderr, "Input file is empty.\n");
+    return false;
+  }
+  if (fseek(file, 0, SEEK_SET) != 0) {
+    fprintf(stderr, "Failed to rewind input file to the beginning.\n");
+    return false;
+  }
+  content->resize(input_size);
+  size_t read_pos = 0;
+  while (read_pos < content->size()) {
+    const size_t bytes_read =
+        fread(&content->at(read_pos), 1, content->size() - read_pos, file);
+    if (bytes_read == 0) {
+      fprintf(stderr, "Failed to read input file\n");
+      return false;
+    }
+    read_pos += bytes_read;
+  }
+  return true;
+}
+
+bool ReadFile(const std::string& file_name, std::string* content) {
+  FILE* file = fopen(file_name.c_str(), "rb");
+  if (file == nullptr) {
+    fprintf(stderr, "Failed to open input file.\n");
+    return false;
+  }
+  bool ok = ReadFileInternal(file, content);
+  if (fclose(file) != 0) {
+    if (ok) {
+      fprintf(stderr, "Failed to close input file.\n");
+    }
+    return false;
+  }
+  return ok;
+}
+
+bool ReadFileHeaderInternal(FILE* file, std::string* content, size_t& len) {
     if (fseek(file, 0, SEEK_END) != 0) {
         fprintf(stderr, "Failed to seek end of input file.\n");
-        return false;
-    }
-    int input_size = ftell(file);
-    if (input_size == 0) {
-        fprintf(stderr, "Input file is empty.\n");
         return false;
     }
     if (fseek(file, 0, SEEK_SET) != 0) {
         fprintf(stderr, "Failed to rewind input file to the beginning.\n");
         return false;
     }
-    content->resize(input_size);
+    content->resize(len);
     size_t read_pos = 0;
     while (read_pos < content->size()) {
         const size_t bytes_read =
@@ -54,13 +93,13 @@ bool ReadFileInternal(FILE* file, std::string* content) {
     return true;
 }
 
-bool ReadFile(const std::string& file_name, std::string* content) {
+bool ReadFileHeader(const std::string& file_name, std::string* content, size_t& len) {
     FILE* file = fopen(file_name.c_str(), "rb");
     if (file == nullptr) {
         fprintf(stderr, "Failed to open input file.\n");
         return false;
     }
-    bool ok = ReadFileInternal(file, content);
+    bool ok = ReadFileHeaderInternal(file, content,len);
     if (fclose(file) != 0) {
         if (ok) {
             fprintf(stderr, "Failed to close input file.\n");
@@ -69,158 +108,111 @@ bool ReadFile(const std::string& file_name, std::string* content) {
     }
     return ok;
 }
-
-#ifdef HEADER
-bool ReadHeadInternal(FILE* file, std::string& content) {
-    if (fseek(file, 0, SEEK_END) != 0) {
-        fprintf(stderr, "Failed to seek end of input file.\n");
-        return false;
-    }
-    int input_size = ftell(file);
-    if (input_size == 0) {
-        fprintf(stderr, "Input file is empty.\n");
-        return false;
-    }
-    if (fseek(file, 0, SEEK_SET) != 0) {
-        fprintf(stderr, "Failed to rewind input file to the beginning.\n");
-        return false;
-    }
-    content.resize(input_size);
-    size_t read_pos = 0;
-    //一次读取一个字节，直到读到FFDA
-    while (read_pos < input_size) {
-        const size_t bytes_read =
-            fread(&content.at(read_pos), 1, 1, file);
-        if (bytes_read == 0) {
-            fprintf(stderr, "Failed to read input file\n");
-            return false;
-        }
-        if (read_pos > 0 && (uint8_t)content[read_pos - 1] == 0xFF && (uint8_t)content[read_pos] == 0xDA) {
-            read_pos += bytes_read;
-            break;
-        }
-        read_pos += bytes_read;
-    }
-    content.resize(read_pos);
-    content.shrink_to_fit();
-    return true;
-}
-bool ReadHead(const std::string& file_name, std::string& content) {
-    FILE* file = fopen(file_name.c_str(), "rb");
-    if (file == nullptr) {
-        fprintf(stderr, "Failed to open input file.\n");
-        return false;
-    }
-    bool ok = ReadHeadInternal(file, content);
-    if (fclose(file) != 0) {
-        if (ok) {
-            fprintf(stderr, "Failed to close input file.\n");
-        }
-        return false;
-    }
-    return ok;
-}
-#endif
 
 bool WriteFileInternal(FILE* file, const std::string& content) {
-    size_t write_pos = 0;
-    while (write_pos < content.size()) {
-        const size_t bytes_written =
-            fwrite(&content[write_pos], 1, content.size() - write_pos, file);
-        if (bytes_written == 0) {
-            fprintf(stderr, "Failed to write output.\n");
-            return false;
-        }
-        write_pos += bytes_written;
+  size_t write_pos = 0;
+  while (write_pos < content.size()) {
+    const size_t bytes_written =
+        fwrite(&content[write_pos], 1, content.size() - write_pos, file);
+    if (bytes_written == 0) {
+      fprintf(stderr, "Failed to write output.\n");
+      return false;
     }
-    return true;
+    write_pos += bytes_written;
+  }
+  return true;
 }
 
 bool WriteFile(const std::string& file_name, const std::string& content) {
-    FILE* file = fopen(file_name.c_str(), "wb");
-    if (file == nullptr) {
-        fprintf(stderr, "Failed to open file for writing.\n");
-        return false;
+  FILE* file = fopen(file_name.c_str(), "wb");
+  if (file == nullptr) {
+    fprintf(stderr, "Failed to open file for writing.\n");
+    return false;
+  }
+  bool ok = WriteFileInternal(file, content);
+  if (fclose(file) != 0) {
+    if (ok) {
+      fprintf(stderr, "Failed to close output file.\n");
     }
-    bool ok = WriteFileInternal(file, content);
-    if (fclose(file) != 0) {
-        if (ok) {
-            fprintf(stderr, "Failed to close output file.\n");
-        }
-        return false;
-    }
-    return ok;
+    return false;
+  }
+  return ok;
 }
 
 bool ProcessFile(const std::string& file_name,
-    const std::string& outfile_name) {
-    //预先将jpeg头读出来
-#ifdef HEADER
-    std::string header;
-    bool ok = ReadHead(file_name, header);
-    if (!ok) return false;
+                 const std::string& outfile_name) {
+  std::string input;
+  bool ok = ReadFile(file_name, &input);
+  if (!ok) return false;
+
+#ifdef JPEG_HEADER
+  size_t header_len = 0;
+  std::string header;
 #endif
-    std::string input;
-    ok = ReadFile(file_name, &input);
+
+  std::string output;
+  {
+    brunsli::JPEGData jpg;
+    const uint8_t* input_data = reinterpret_cast<const uint8_t*>(input.data());
+#ifdef JPEG_HEADER
+    ok = brunsli::ReadHeader(input_data, input.size(), brunsli::JPEG_READ_ALL,
+        &jpg,header_len);
+    bool ok = ReadFileHeader(file_name, &header, header_len);
     if (!ok) return false;
+#else
+    ok = brunsli::ReadJpeg(input_data, input.size(), brunsli::JPEG_READ_ALL,
+                        &jpg);
+#endif
+    input.clear();
+    input.shrink_to_fit();
+    if (!ok) {
+      fprintf(stderr, "Failed to parse JPEG input.\n");
+      return false;
+    }
 
-    std::string output;
-    {
-        brunsli::JPEGData jpg;
-        const uint8_t* input_data = reinterpret_cast<const uint8_t*>(input.data());
-        ok = brunsli::ReadJpeg(input_data, input.size(), brunsli::JPEG_READ_ALL,
-            &jpg);
-        input.clear();
-        input.shrink_to_fit();
-        if (!ok) {
-            fprintf(stderr, "Failed to parse JPEG input.\n");
-            return false;
-        }
-
-        size_t output_size = brunsli::GetMaximumBrunsliEncodedSize(jpg);
-        output.resize(output_size);
-        uint8_t* output_data = reinterpret_cast<uint8_t*>(&output[0]);
+    size_t output_size = brunsli::GetMaximumBrunsliEncodedSize(jpg);
+    output.resize(output_size);
+    uint8_t* output_data = reinterpret_cast<uint8_t*>(&output[0]);
 
 #if defined(BRUNSLI_EXPERIMENTAL_GROUPS)
-        {
-            brunsli::ParallelExecutor pool(4);
-            brunsli::Executor executor = pool.getExecutor();
-            ok = brunsli::EncodeGroups(jpg, output_data, &output_size, 32, 128,
-                &executor);
-        }
+    {
+      brunsli::ParallelExecutor pool(4);
+      brunsli::Executor executor = pool.getExecutor();
+      ok = brunsli::EncodeGroups(jpg, output_data, &output_size, 32, 128,
+                                 &executor);
+    }
 #else
-        ok = brunsli::BrunsliEncodeJpeg(jpg, output_data, &output_size);
+    ok = brunsli::BrunsliEncodeJpeg(jpg, output_data, &output_size);
 #endif
 
-        if (!ok) {
-            // TODO(eustas): use fallback?
-            fprintf(stderr, "Failed to transform JPEG to Brunsli\n");
-            return false;
-        }
-        output.resize(output_size);
+    if (!ok) {
+      // TODO(eustas): use fallback?
+      fprintf(stderr, "Failed to transform JPEG to Brunsli\n");
+      return false;
     }
-#ifdef HEADER  
-    std::string res = header + output;
-    ok = WriteFile(outfile_name, res);
-    return ok;
-#elif
-    ok = WriteFile(outfile_name, output);
-    return ok;
+    output.resize(output_size);
+  }
+#ifdef JPEG_HEADER
+  std::string res = header + output;
+  ok = WriteFile(outfile_name, res);
+#else
+  ok = WriteFile(outfile_name, output);
 #endif
+  return ok;
 }
 
 int main(int argc, char** argv) {
-    if (argc != 2 && argc != 3) {
-        fprintf(stderr, "Usage: cbrunsli FILE [OUTPUT_FILE, default=FILE.brn]\n");
-        return EXIT_FAILURE;
-    }
-    const std::string file_name = std::string(argv[1]);
-    if (file_name.empty()) {
-        fprintf(stderr, "Empty input file name.\n");
-        return EXIT_FAILURE;
-    }
-    const std::string outfile_name =
-        argc == 2 ? file_name + ".brn" : std::string(argv[2]);
-    bool ok = ProcessFile(file_name, outfile_name);
-    return ok ? EXIT_SUCCESS : EXIT_FAILURE;
+  if (argc != 2 && argc != 3) {
+    fprintf(stderr, "Usage: cbrunsli FILE [OUTPUT_FILE, default=FILE.brn]\n");
+    return EXIT_FAILURE;
+  }
+  const std::string file_name = std::string(argv[1]);
+  if (file_name.empty()) {
+    fprintf(stderr, "Empty input file name.\n");
+    return EXIT_FAILURE;
+  }
+  const std::string outfile_name =
+      argc == 2 ? file_name + ".brn" : std::string(argv[2]);
+  bool ok = ProcessFile(file_name, outfile_name);
+  return ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }

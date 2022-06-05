@@ -62,7 +62,12 @@ inline int DivCeil(int a, int b) { return (a + b - 1) / b; }
 inline int ReadUint8(const uint8_t* data, size_t* pos) {
   return data[(*pos)++];
 }
-
+#ifdef JPEG_HEADER
+inline int ReadUint16_NoPos(const uint8_t* data, size_t* pos) {
+  int v = (data[*pos] << 8) + data[*pos + 1];
+  return v;
+}
+#endif
 inline int ReadUint16(const uint8_t* data, size_t* pos) {
   int v = (data[*pos] << 8) + data[*pos + 1];
   *pos += 2;
@@ -1002,7 +1007,153 @@ size_t FindNextMarker(const uint8_t* data, const size_t len, size_t pos) {
 }
 
 }  // namespace
+#ifdef JPEG_HEADER
+bool ReadHeader(const uint8_t* data, const size_t len, JpegReadMode mode,
+              JPEGData* jpg, size_t& header_len) {
+  size_t pos = 0;
+  // Check SOI marker.
+  BRUNSLI_EXPECT_MARKER();
+  int marker = data[pos + 1];
+  pos += 2;
+  if (marker != 0xd8) {
+    BRUNSLI_LOG_INFO() << "Did not find expected SOI marker, actual=" << marker
+                       << BRUNSLI_ENDL();
+    jpg->error = JPEGReadError::SOI_NOT_FOUND;
+    return false;
+  }
+  int lut_size = kMaxHuffmanTables * kJpegHuffmanLutSize;
+  std::vector<HuffmanTableEntry> dc_huff_lut(lut_size);
+  std::vector<HuffmanTableEntry> ac_huff_lut(lut_size);
+  bool found_sof = false;
+  bool found_dri = false;
+  uint16_t scan_progression[kMaxComponents][kDCTBlockSize] = {{0}};
 
+  jpg->padding_bits.resize(0);
+  bool is_progressive = false;  // default
+  do {
+    // Read next marker.
+    size_t num_skipped = FindNextMarker(data, len, pos);
+    if (num_skipped > 0) {
+      // Add a fake marker to indicate arbitrary in-between-markers data.
+      jpg->marker_order.push_back(0xff);
+      jpg->inter_marker_data.push_back(
+          std::vector<uint8_t>(data + pos, data + pos + num_skipped));
+      pos += num_skipped;
+    }
+    BRUNSLI_EXPECT_MARKER();
+    marker = data[pos + 1];
+    pos += 2;
+    bool ok = true;
+    switch (marker) {
+      case 0xc0:
+      case 0xc1:
+      case 0xc2:
+        is_progressive = (marker == 0xc2);
+        ok = ProcessSOF(data, len, mode, &pos, jpg);
+        found_sof = true;
+        break;
+      case 0xc4:
+        ok = ProcessDHT(data, len, mode, &dc_huff_lut, &ac_huff_lut, &pos, jpg);
+        break;
+      case 0xd0:
+      case 0xd1:
+      case 0xd2:
+      case 0xd3:
+      case 0xd4:
+      case 0xd5:
+      case 0xd6:
+      case 0xd7:
+        // RST markers do not have any data.
+        break;
+      case 0xd9:
+        // Found end marker.
+        break;
+      case 0xda:
+        header_len = pos + ReadUint16_NoPos(data,&pos);
+        if (mode == JPEG_READ_ALL) {
+          ok = ProcessScan(data, len, dc_huff_lut, ac_huff_lut,
+                           scan_progression, is_progressive, &pos, jpg);
+        }
+        break;
+      case 0xdb:
+        ok = ProcessDQT(data, len, &pos, jpg);
+        break;
+      case 0xdd:
+        ok = ProcessDRI(data, len, &pos, &found_dri, jpg);
+        break;
+      case 0xe0:
+      case 0xe1:
+      case 0xe2:
+      case 0xe3:
+      case 0xe4:
+      case 0xe5:
+      case 0xe6:
+      case 0xe7:
+      case 0xe8:
+      case 0xe9:
+      case 0xea:
+      case 0xeb:
+      case 0xec:
+      case 0xed:
+      case 0xee:
+      case 0xef:
+        if (mode != JPEG_READ_TABLES) {
+          ok = ProcessAPP(data, len, &pos, jpg);
+        }
+        break;
+      case 0xfe:
+        if (mode != JPEG_READ_TABLES) {
+          ok = ProcessCOM(data, len, &pos, jpg);
+        }
+        break;
+      default:
+        BRUNSLI_LOG_INFO() << "Unsupported marker: " << marker << " pos=" << pos
+                           << " len=" << len << BRUNSLI_ENDL();
+        jpg->error = JPEGReadError::UNSUPPORTED_MARKER;
+        ok = false;
+        break;
+    }
+    if (!ok) {
+      return false;
+    }
+    jpg->marker_order.push_back(marker);
+    if (mode == JPEG_READ_HEADER && found_sof) {
+      break;
+    }
+  } while (marker != 0xd9);
+
+  if (!found_sof) {
+    BRUNSLI_LOG_INFO() << "Missing SOF marker." << BRUNSLI_ENDL();
+    jpg->error = JPEGReadError::SOF_NOT_FOUND;
+    return false;
+  }
+
+  // Supplemental checks.
+  if (mode == JPEG_READ_ALL) {
+    if (pos < len) {
+      jpg->tail_data = std::vector<uint8_t>(data + pos, data + len);
+    }
+    if (!FixupIndexes(jpg)) {
+      return false;
+    }
+    if (jpg->huffman_code.empty()) {
+      // Section B.2.4.2: "If a table has never been defined for a particular
+      // destination, then when this destination is specified in a scan header,
+      // the results are unpredictable."
+      BRUNSLI_LOG_INFO() << "Need at least one Huffman code table."
+                         << BRUNSLI_ENDL();
+      jpg->error = JPEGReadError::HUFFMAN_TABLE_ERROR;
+      return false;
+    }
+    if (jpg->huffman_code.size() >= kMaxDHTMarkers) {
+      BRUNSLI_LOG_INFO() << "Too many Huffman tables." << BRUNSLI_ENDL();
+      jpg->error = JPEGReadError::HUFFMAN_TABLE_ERROR;
+      return false;
+    }
+  }
+  return true;
+}
+#endif
 bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
               JPEGData* jpg) {
   size_t pos = 0;

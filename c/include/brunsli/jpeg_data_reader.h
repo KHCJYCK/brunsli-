@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT.
 
 // Functions for reading a jpeg byte stream into a JPEGData object.
+//#define JPEG_HEADER
 
 #ifndef BRUNSLI_ENC_JPEG_DATA_READER_H_
 #define BRUNSLI_ENC_JPEG_DATA_READER_H_
@@ -27,6 +28,10 @@ enum JpegReadMode {
 // JPEG feature.
 bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
               JPEGData* jpg);
+#ifdef JPEG_HEADER
+bool ReadHeader(const uint8_t* data, const size_t len, JpegReadMode mode,
+JPEGData* jpg, size_t& header_len);
+#endif
 
 }  // namespace brunsli
 
