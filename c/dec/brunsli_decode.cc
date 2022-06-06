@@ -2108,33 +2108,30 @@ static Stage ProcessSection(State* state, JPEGData* jpg) {
 
   switch (s.section.tag) {
     case kBrunsliMetaDataTag: {
-      /*BrunsliStatus status = DecodeMetaDataSection(state, jpg);*/
-      BrunsliStatus status = BRUNSLI_OK;
+      BrunsliStatus status = DecodeMetaDataSection(state, jpg);
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
     }
 
     case kBrunsliJPEGInternalsTag: {
-      //BrunsliStatus status = DecodeJPEGInternalsSection(state, jpg);
-        BrunsliStatus status = BRUNSLI_OK;
+      BrunsliStatus status = DecodeJPEGInternalsSection(state, jpg);
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
     }
 
     case kBrunsliQuantDataTag: {
-      //if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
-      //  return Fail(state, BRUNSLI_INVALID_BRN);
-      //}
-      //BrunsliStatus status = DecodeQuantDataSection(state, jpg);
-      BrunsliStatus status = BRUNSLI_OK;
+      if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
+        return Fail(state, BRUNSLI_INVALID_BRN);
+      }
+      BrunsliStatus status = DecodeQuantDataSection(state, jpg);
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
     }
 
     case kBrunsliHistogramDataTag: {
-      //if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
-      //  return Fail(state, BRUNSLI_INVALID_BRN);
-      //}
+      if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
+        return Fail(state, BRUNSLI_INVALID_BRN);
+      }
       BrunsliStatus status = DecodeHistogramDataSection(state, jpg);
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
@@ -2144,9 +2141,9 @@ static Stage ProcessSection(State* state, JPEGData* jpg) {
       if (!HasSection(state, kBrunsliHistogramDataTag)) {
         return Fail(state, BRUNSLI_INVALID_BRN);
       }
-      //if (!HasSection(state, kBrunsliQuantDataTag)) {
-      //  return Fail(state, BRUNSLI_INVALID_BRN);
-      //}
+      if (!HasSection(state, kBrunsliQuantDataTag)) {
+        return Fail(state, BRUNSLI_INVALID_BRN);
+      }
       // This section reads input word by word.
       if ((RemainingSectionLength(state) & 1) != 0) {
         return Fail(state, BRUNSLI_INVALID_BRN);
