@@ -1071,6 +1071,9 @@ bool ReadHeader(const uint8_t* data, const size_t len, JpegReadMode mode,
       case 0xda:
         if (mode == JPEG_READ_ORIGIN_HEAD) {
             header_len = pos + ReadUint16_NoPos(data, &pos);
+            if (!ProcessSOS(data, len, &pos, jpg)) {
+                return false;
+            }
             return true;
         }
         header_len = pos + ReadUint16_NoPos(data,&pos);

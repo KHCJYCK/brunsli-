@@ -125,7 +125,7 @@ bool ProcessFile(const std::string& file_name,
 #ifdef JPEG_HEADER
     brunsli::JPEGData jpg_header;
     ok = brunsli::ReadHeader(input_data, input.size(), brunsli::JPEG_READ_ORIGIN_HEAD,
-        &jpg_header, header_len);
+        &jpg, header_len);
     const uint8_t* input_data_temp = reinterpret_cast<const uint8_t*>(&input[header_len]);
 #endif
 #if defined(BRUNSLI_EXPERIMENTAL_GROUPS)
@@ -139,6 +139,8 @@ bool ProcessFile(const std::string& file_name,
 #ifdef JPEG_HEADER
     brunsli::BrunsliStatus status =
         brunsli::BrunsliDecodeJpeg(input_data_temp, input.size() - header_len, &jpg);
+    jpg.marker_order.push_back(218);
+    jpg.marker_order.push_back(217);
     ok = (status == brunsli::BRUNSLI_OK);
 #else
     brunsli::BrunsliStatus status =

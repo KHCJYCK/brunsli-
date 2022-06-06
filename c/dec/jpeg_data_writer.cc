@@ -851,10 +851,10 @@ SerializationStatus SerializeSection(uint8_t marker, const State& parsing_state,
     case 0xC9:
     case 0xCA:
       return to_status(EncodeSOF(jpg, marker, state));
-
+      
     case 0xC4:
       return to_status(EncodeDHT(jpg, state));
-
+      
     case 0xD0:
     case 0xD1:
     case 0xD2:
@@ -864,19 +864,19 @@ SerializationStatus SerializeSection(uint8_t marker, const State& parsing_state,
     case 0xD6:
     case 0xD7:
       return to_status(EncodeRestart(marker, state));
-
+      
     case 0xD9:
       return to_status(EncodeEOI(jpg, state));
-
+      
     case 0xDA:
       return EncodeScan(jpg, parsing_state, state);
 
     case 0xDB:
       return to_status(EncodeDQT(jpg, state));
-
+      
     case 0xDD:
       return to_status(EncodeDRI(jpg, state));
-
+      
     case 0xE0:
     case 0xE1:
     case 0xE2:
@@ -894,13 +894,13 @@ SerializationStatus SerializeSection(uint8_t marker, const State& parsing_state,
     case 0xEE:
     case 0xEF:
       return to_status(EncodeAPP(jpg, marker, state));
-
+      
     case 0xFE:
       return to_status(EncodeCOM(jpg, state));
-
+      
     case 0xFF:
       return to_status(EncodeInterMarkerData(jpg, state));
-
+     
     default:
       return SerializationStatus::ERROR;
   }
