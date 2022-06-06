@@ -33,7 +33,7 @@
 #include <brunsli/jpeg_data_writer.h>
 #include "./state.h"
 #include "./state_internal.h"
-
+#define JPEG_HEADER
 namespace brunsli {
 
 using ::brunsli::internal::dec::AcDcState;
@@ -2108,33 +2108,44 @@ static Stage ProcessSection(State* state, JPEGData* jpg) {
 
   switch (s.section.tag) {
     case kBrunsliMetaDataTag: {
-      /*BrunsliStatus status = DecodeMetaDataSection(state, jpg);*/
+#ifndef JPEG_HEADER
+      BrunsliStatus status = DecodeMetaDataSection(state, jpg);
+#else
       BrunsliStatus status = BRUNSLI_OK;
+#endif
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
     }
 
     case kBrunsliJPEGInternalsTag: {
-      //BrunsliStatus status = DecodeJPEGInternalsSection(state, jpg);
+#ifndef JPEG_HEADER
+        BrunsliStatus status = DecodeJPEGInternalsSection(state, jpg);
+#else
         BrunsliStatus status = BRUNSLI_OK;
+#endif
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
     }
 
     case kBrunsliQuantDataTag: {
-      //if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
-      //  return Fail(state, BRUNSLI_INVALID_BRN);
-      //}
-      //BrunsliStatus status = DecodeQuantDataSection(state, jpg);
+#ifndef JPEG_HEADER
+      if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
+        return Fail(state, BRUNSLI_INVALID_BRN);
+      }
+      BrunsliStatus status = DecodeQuantDataSection(state, jpg);
+#else
       BrunsliStatus status = BRUNSLI_OK;
+#endif
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
     }
 
     case kBrunsliHistogramDataTag: {
-      //if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
-      //  return Fail(state, BRUNSLI_INVALID_BRN);
-      //}
+#ifndef JPEG_HEADER
+      if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
+        return Fail(state, BRUNSLI_INVALID_BRN);
+      }
+#endif
       BrunsliStatus status = DecodeHistogramDataSection(state, jpg);
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
@@ -2144,9 +2155,11 @@ static Stage ProcessSection(State* state, JPEGData* jpg) {
       if (!HasSection(state, kBrunsliHistogramDataTag)) {
         return Fail(state, BRUNSLI_INVALID_BRN);
       }
-      //if (!HasSection(state, kBrunsliQuantDataTag)) {
-      //  return Fail(state, BRUNSLI_INVALID_BRN);
-      //}
+#ifndef JPEG_HEADER
+      if (!HasSection(state, kBrunsliQuantDataTag)) {
+        return Fail(state, BRUNSLI_INVALID_BRN);
+      }
+#endif
       // This section reads input word by word.
       if ((RemainingSectionLength(state) & 1) != 0) {
         return Fail(state, BRUNSLI_INVALID_BRN);

@@ -1362,22 +1362,31 @@ bool BrunsliSerialize(State* state, const JPEGData& jpg, uint32_t skip_sections,
   }
 
   if (!(skip_sections & (1u << kBrunsliJPEGInternalsTag))) {
-    //ok = encode_section(kBrunsliJPEGInternalsTag, EncodeJPEGInternals,
-    //                    Base128Size(EstimateAuxDataSize(jpg)));
+#ifndef JPEG_HEADER
+    ok = encode_section(kBrunsliJPEGInternalsTag, EncodeJPEGInternals,
+                        Base128Size(EstimateAuxDataSize(jpg)));
+#else
     ok = true;
+#endif
     if (!ok) return false;
   }
 
   if (!(skip_sections & (1u << kBrunsliMetaDataTag))) {
-    //ok = encode_section(kBrunsliMetaDataTag, EncodeMetaData,
-    //                    Base128Size(*len - pos));
+#ifndef JPEG_HEADER
+    ok = encode_section(kBrunsliMetaDataTag, EncodeMetaData,
+                        Base128Size(*len - pos));
+#else
     ok = true;
+#endif
     if (!ok) return false;
   }
 
   if (!(skip_sections & (1u << kBrunsliQuantDataTag))) {
-    //ok = encode_section(kBrunsliQuantDataTag, EncodeQuantData, 2);
+#ifndef JPEG_HEADER
+    ok = encode_section(kBrunsliQuantDataTag, EncodeQuantData, 2);
+#else
     ok = true;
+#endif
     if (!ok) return false;
   }
 

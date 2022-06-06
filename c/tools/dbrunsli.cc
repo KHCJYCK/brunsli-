@@ -28,7 +28,12 @@ static FILE* ms_fopen(const char* filename, const char* mode) {
   return result;
 }
 #endif  /* WIN32 */
-
+#ifdef JPEG_HEADER
+inline int ReadUint16_NoPos(const uint8_t* data, size_t* pos) {
+    int v = (data[*pos] << 8) + data[*pos + 1];
+    return v;
+}
+#endif
 size_t StringWriter(void* data, const uint8_t* buf, size_t count) {
   std::string* output = reinterpret_cast<std::string*>(data);
   output->append(reinterpret_cast<const char*>(buf), count);
@@ -116,6 +121,7 @@ bool ProcessFile(const std::string& file_name,
   if (!ok) return false;
 #ifdef JPEG_HEADER
   size_t header_len = 0;
+  std::string tail;
 #endif
   std::string output;
   {
@@ -123,10 +129,12 @@ bool ProcessFile(const std::string& file_name,
     const uint8_t* input_data = reinterpret_cast<const uint8_t*>(input.data());
 
 #ifdef JPEG_HEADER
-    brunsli::JPEGData jpg_header;
     ok = brunsli::ReadHeader(input_data, input.size(), brunsli::JPEG_READ_ORIGIN_HEAD,
         &jpg, header_len);
-    const uint8_t* input_data_temp = reinterpret_cast<const uint8_t*>(&input[header_len]);
+    int tail_size = ReadUint16_NoPos(input_data, &header_len);
+    tail.resize(tail_size);
+    memcpy(&tail[0], &input[header_len + 2], tail_size);
+    const uint8_t* input_data_temp = reinterpret_cast<const uint8_t*>(&input[header_len + 2 + tail_size]);
 #endif
 #if defined(BRUNSLI_EXPERIMENTAL_GROUPS)
     {
@@ -138,7 +146,7 @@ bool ProcessFile(const std::string& file_name,
 #else
 #ifdef JPEG_HEADER
     brunsli::BrunsliStatus status =
-        brunsli::BrunsliDecodeJpeg(input_data_temp, input.size() - header_len, &jpg);
+        brunsli::BrunsliDecodeJpeg(input_data_temp, input.size() - header_len - 2 - tail_size, &jpg);
     jpg.marker_order.push_back(218);
     jpg.marker_order.push_back(217);
     ok = (status == brunsli::BRUNSLI_OK);
@@ -163,7 +171,9 @@ bool ProcessFile(const std::string& file_name,
       return false;
     }
   }
-
+#ifdef JPEG_HEADER
+  output += tail;
+#endif
   ok = WriteFile(outfile_name, output);
 
   return ok;

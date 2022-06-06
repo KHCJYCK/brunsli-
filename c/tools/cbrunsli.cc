@@ -148,6 +148,8 @@ bool ProcessFile(const std::string& file_name,
 #ifdef JPEG_HEADER
   size_t header_len = 0;
   std::string header;
+  std::string tail_size;
+  std::string tail;
 #endif
 
   std::string output;
@@ -157,7 +159,13 @@ bool ProcessFile(const std::string& file_name,
 #ifdef JPEG_HEADER
     ok = brunsli::ReadHeader(input_data, input.size(), brunsli::JPEG_READ_ALL,
         &jpg,header_len);
+    uint16_t size = jpg.tail_data.size();
+    tail_size = std::string((char*)&size, ((char*)&size) +2);
+    char temp = tail_size[0];
+    tail_size[0] = tail_size[1];
+    tail_size[1] = temp;
     bool ok = ReadFileHeader(file_name, &header, header_len);
+    tail = std::string(jpg.tail_data.begin(), jpg.tail_data.end());
     if (!ok) return false;
 #else
     ok = brunsli::ReadJpeg(input_data, input.size(), brunsli::JPEG_READ_ALL,
@@ -193,7 +201,8 @@ bool ProcessFile(const std::string& file_name,
     output.resize(output_size);
   }
 #ifdef JPEG_HEADER
-  std::string res = header + output;
+  std::string res = header + tail_size + tail + output;
+  //把jpg最后的tail_data也写进码流中
   ok = WriteFile(outfile_name, res);
 #else
   ok = WriteFile(outfile_name, output);

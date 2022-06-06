@@ -35,7 +35,5 @@ bool ReadJpeg(const uint8_t* data, const size_t len, JpegReadMode mode,
 bool ReadHeader(const uint8_t* data, const size_t len, JpegReadMode mode,
 JPEGData* jpg, size_t& header_len);
 #endif
-
 }  // namespace brunsli
-
 #endif  // BRUNSLI_ENC_JPEG_DATA_READER_H_
