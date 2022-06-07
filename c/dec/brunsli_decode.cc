@@ -2111,7 +2111,12 @@ static Stage ProcessSection(State* state, JPEGData* jpg) {
 #ifndef JPEG_HEADER
       BrunsliStatus status = DecodeMetaDataSection(state, jpg);
 #else
-      BrunsliStatus status = BRUNSLI_OK;
+        BrunsliStatus status = BRUNSLI_OK;
+        if (jpg->is_progressive) {
+             status = DecodeMetaDataSection(state, jpg);
+        }
+        else
+             status = BRUNSLI_OK;
 #endif
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
@@ -2122,6 +2127,11 @@ static Stage ProcessSection(State* state, JPEGData* jpg) {
         BrunsliStatus status = DecodeJPEGInternalsSection(state, jpg);
 #else
         BrunsliStatus status = BRUNSLI_OK;
+        if (jpg->is_progressive) {
+            status = DecodeJPEGInternalsSection(state, jpg);
+        }
+        else
+            status = BRUNSLI_OK;
 #endif
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;
@@ -2134,7 +2144,15 @@ static Stage ProcessSection(State* state, JPEGData* jpg) {
       }
       BrunsliStatus status = DecodeQuantDataSection(state, jpg);
 #else
-      BrunsliStatus status = BRUNSLI_OK;
+        BrunsliStatus status = BRUNSLI_OK;
+        if (jpg->is_progressive) {
+            if (!HasSection(state, kBrunsliJPEGInternalsTag)) {
+                return Fail(state, BRUNSLI_INVALID_BRN);
+            }
+            BrunsliStatus status = DecodeQuantDataSection(state, jpg);
+        }
+        else
+             status = BRUNSLI_OK;
 #endif
       if (status != BRUNSLI_OK) return Fail(state, status);
       break;

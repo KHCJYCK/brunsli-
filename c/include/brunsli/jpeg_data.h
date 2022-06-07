@@ -8,7 +8,7 @@
 
 #ifndef BRUNSLI_COMMON_JPEG_DATA_H_
 #define BRUNSLI_COMMON_JPEG_DATA_H_
-
+#define JPEG_HEADER
 #include <array>
 #include <vector>
 
@@ -221,7 +221,9 @@ struct JPEGData {
                original_jpg_size(0),
                error(JPEGReadError::OK),
                has_zero_padding_bit(false) {}
-
+#ifdef JPEG_HEADER
+  bool is_progressive;
+#endif
   int width;
   int height;
   int version;

@@ -159,6 +159,11 @@ bool ProcessFile(const std::string& file_name,
 #ifdef JPEG_HEADER
     ok = brunsli::ReadHeader(input_data, input.size(), brunsli::JPEG_READ_ALL,
         &jpg,header_len);
+    if (jpg.is_progressive) {
+        brunsli::JPEGData jpg_temp;
+        ok = brunsli::ReadHeader(input_data, input.size(), brunsli::JPEG_READ_ORIGIN_HEAD,
+            &jpg_temp, header_len);
+    }
     uint16_t size = jpg.tail_data.size();
     tail_size = std::string((char*)&size, ((char*)&size) +2);
     char temp = tail_size[0];

@@ -1030,6 +1030,9 @@ bool ReadHeader(const uint8_t* data, const size_t len, JpegReadMode mode,
 
   jpg->padding_bits.resize(0);
   bool is_progressive = false;  // default
+#ifdef JPEG_HEADER
+  jpg->is_progressive = false;
+#endif
   do {
     // Read next marker.
     size_t num_skipped = FindNextMarker(data, len, pos);
@@ -1049,6 +1052,9 @@ bool ReadHeader(const uint8_t* data, const size_t len, JpegReadMode mode,
       case 0xc1:
       case 0xc2:
         is_progressive = (marker == 0xc2);
+#ifdef JPEG_HEADER
+        jpg->is_progressive = is_progressive;
+#endif
         ok = ProcessSOF(data, len, mode, &pos, jpg);
         found_sof = true;
         break;

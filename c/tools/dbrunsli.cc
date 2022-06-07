@@ -145,6 +145,27 @@ bool ProcessFile(const std::string& file_name,
     }
 #else
 #ifdef JPEG_HEADER
+    if (jpg.is_progressive) {
+        brunsli::JPEGData jpg;
+        brunsli::BrunsliStatus status =
+            brunsli::BrunsliDecodeJpeg(input_data_temp, input.size() - header_len - 2 - tail_size, &jpg);
+        ok = (status == brunsli::BRUNSLI_OK);
+        input.clear();
+        input.shrink_to_fit();
+        if (!ok) {
+            fprintf(stderr, "Failed to parse Brunsli input.\n");
+            return false;
+        }
+
+        brunsli::JPEGOutput writer(StringWriter, &output);
+        ok = brunsli::WriteJpeg(jpg, writer);
+        if (!ok) {
+            fprintf(stderr, "Failed to serialize JPEG data.\n");
+            return false;
+        }
+        ok = WriteFile(outfile_name, output);
+        return ok;
+    }
     brunsli::BrunsliStatus status =
         brunsli::BrunsliDecodeJpeg(input_data_temp, input.size() - header_len - 2 - tail_size, &jpg);
     jpg.marker_order.push_back(218);

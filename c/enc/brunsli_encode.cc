@@ -1366,7 +1366,12 @@ bool BrunsliSerialize(State* state, const JPEGData& jpg, uint32_t skip_sections,
     ok = encode_section(kBrunsliJPEGInternalsTag, EncodeJPEGInternals,
                         Base128Size(EstimateAuxDataSize(jpg)));
 #else
-    ok = true;
+    if (jpg.is_progressive) {
+        ok = encode_section(kBrunsliJPEGInternalsTag, EncodeJPEGInternals,
+            Base128Size(EstimateAuxDataSize(jpg)));
+    }
+    else
+        ok = true;
 #endif
     if (!ok) return false;
   }
@@ -1376,7 +1381,12 @@ bool BrunsliSerialize(State* state, const JPEGData& jpg, uint32_t skip_sections,
     ok = encode_section(kBrunsliMetaDataTag, EncodeMetaData,
                         Base128Size(*len - pos));
 #else
-    ok = true;
+      if (jpg.is_progressive) {
+          ok = encode_section(kBrunsliMetaDataTag, EncodeMetaData,
+              Base128Size(*len - pos));
+      }
+      else
+        ok = true;
 #endif
     if (!ok) return false;
   }
@@ -1385,7 +1395,11 @@ bool BrunsliSerialize(State* state, const JPEGData& jpg, uint32_t skip_sections,
 #ifndef JPEG_HEADER
     ok = encode_section(kBrunsliQuantDataTag, EncodeQuantData, 2);
 #else
-    ok = true;
+      if (jpg.is_progressive) {
+          ok = encode_section(kBrunsliQuantDataTag, EncodeQuantData, 2);
+      }
+      else
+        ok = true;
 #endif
     if (!ok) return false;
   }
